@@ -1,0 +1,239 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        0,
+        0
+      ],
+      "id": "a5e7ef90-9b77-4ea8-a362-d29953967722",
+      "name": "When chat message received",
+      "webhookId": "eae664b7-e433-4211-a93d-271da9c8945c"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "You are a Tunisian sales representative for \"MH Clothing Brand\".\nYou are a Tunisian sales assistant. If the user provides all order details (Name, Phone, Address, Product, Size), you MUST call the \"Save Order Tool\" to save the order to Google Sheets, then confirm the order to the user\nSTRICT RULES:\n1. NO ARABIC SCRIPT. Write 100% in Franco-Arabe / French.\n2. STRICTLY BANNED WORDS: bghiti, bghit, dyal, bezzaf, wach, goliya, t3awenini, Iwa, 7ta, kolchi, yirrek.\n3. STRICT WORKFLOW LOGIC:\n\nSTEP A (Browsing): When user asks for available articles, list them and end ONLY with:\n\"Chneya l modèle li 3jbek khouya?\"\n\nSTEP B (Item Selected / Asking Details): When user selects a specific product, check stock/details via tool, list available sizes, and ask for their contact info. END ONLY WITH:\n\"Pour passer la commande, ib3athli s'il vous plaît: Nom, Prénom, Numéro de téléphone, Adresse exacte, et la Taille.\"\n(DO NOT ASK \"Chneya l modèle li 3jbek khouya?\" IN THIS STEP!)\n\nSTEP C (Order Confirmation): When user provides contact info (Name, Phone, Address):\n- ALWAYS USE THE EXACT PRODUCT CHOSEN BY THE USER IN STEP B (Do not hardcode or overwrite product names!).\n- IMMEDIATELY CALL the Google Sheets tool (\"Append Row\") to write the order into the \"Orders\" sheet.\n- Calculate Total Price = Selected Product Price + 7 DT livraison.\n- CONFIRM the order clearly using this format:\n\"3aslama [Name]! Ya3tik es-se77a, c'est bon enregistrit la commande mta3ek:\n- Produit: [Exact Selected Product] (Taille [Size])\n- Prix: [Price] DT + 7 DT livraison = [Total] DT Total\n- Adresse: [Address]\n- Téléphone: [Phone]\nLe livreur va vous contacter dans 24-48h. Merci pour votre confiance!\""
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        224,
+        0
+      ],
+      "id": "75b9ef52-a4ed-440d-8e4d-d237a84fec65",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "options": {
+          "temperature": 0
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        96,
+        208
+      ],
+      "id": "f145b445-a7bb-4166-a3ae-a7f39d019515",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "yLKevaaCTOvVEsBv",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Use this tool to search for products, check prices, and view stock availability",
+        "documentId": {
+          "__rl": true,
+          "value": "1eGs1jQgLqZAk6AYQxIlmEtMv5pR3kJEA_lbRG1CX8vs",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "sheet 1",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        368,
+        240
+      ],
+      "id": "5c435913-02f6-45d9-935a-b6dac2a10dca",
+      "name": "Get row(s) in sheet in Google Sheets",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Kx0wRUxACnM3C5TB",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Append row in sheet in Google SheetsCall this tool IMMEDIATELY when the user gives their full name, phone number, address, and product name to register their order.",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1eGs1jQgLqZAk6AYQxIlmEtMv5pR3kJEA_lbRG1CX8vs",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "orders",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Nom_Prenom": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Nom_Prenom', ``, 'string') }}",
+            "Telephone": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Telephone', ``, 'string') }}",
+            "Adresse": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Adresse', ``, 'string') }}",
+            "Article": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Article', ``, 'string') }}",
+            "Taille": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Taille', ``, 'string') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Nom_Prenom",
+              "displayName": "Nom_Prenom",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Telephone",
+              "displayName": "Telephone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Adresse",
+              "displayName": "Adresse",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Article",
+              "displayName": "Article",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Taille",
+              "displayName": "Taille",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        480,
+        304
+      ],
+      "id": "a8034a5b-dfd6-4266-b55a-42525a21fd03",
+      "name": "Save Order Tool",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Kx0wRUxACnM3C5TB",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet in Google Sheets": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Order Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "ade01903-2345-451d-9871-51a29be769cd",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "437762a0c33371974d2925703986bcb054710342c106fde4c67a4f1c7edd3a05"
+  },
+  "nodeGroups": [],
+  "id": "RRWvT2p1Ljk96Ph2",
+  "tags": []
+}

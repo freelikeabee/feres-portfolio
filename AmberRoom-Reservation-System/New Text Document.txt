@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Amber Room — Table Reservations</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void:#0b0b0d;
+    --surface:#141419;
+    --surface-2:#1b1b22;
+    --hairline:#2a2a33;
+    --text-primary:#ede9e1;
+    --text-muted:#8b887f;
+    --gold:#c9a15d;
+    --gold-dim:#8f7343;
+    --available:#3e8e63;
+    --available-dim:#245638;
+    --pending:#d99a3d;
+    --reserved:#a34b3f;
+    --reserved-dim:#5e2c25;
+    --selected:#2563eb;
+  }
+  *{box-sizing:border-box;}
+  body{
+    background:var(--void);
+    color:var(--text-primary);
+    font-family:'Manrope',sans-serif;
+    background-image:
+      radial-gradient(circle at 15% 0%, rgba(201,161,93,0.06), transparent 45%),
+      radial-gradient(circle at 85% 100%, rgba(201,161,93,0.05), transparent 50%);
+  }
+  .font-display{ font-family:'Cormorant Garamond', serif; }
+
+  .blueprint-grid{
+    background-image: radial-gradient(rgba(201,161,93,0.16) 1px, transparent 1px);
+    background-size: 26px 26px;
+    background-position: -4px -4px;
+  }
+
+  .zone-panel{
+    background: linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0.0));
+    border: 1px dashed rgba(201,161,93,0.18);
+  }
+
+  .table-node{
+    position:absolute;
+    transform: translate(-50%,-50%);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    cursor:pointer;
+    transition: transform .18s ease, box-shadow .25s ease, filter .2s ease;
+    border-width:2px;
+    border-style:solid;
+  }
+  .table-node:hover{ transform: translate(-50%,-50%) scale(1.07); }
+  .table-node .cap{
+    font-size:10px;
+    letter-spacing:.04em;
+    font-weight:700;
+    opacity:.85;
+  }
+  .table-node .label{
+    font-size:9px;
+    letter-spacing:.08em;
+    opacity:.55;
+    text-transform:uppercase;
+  }
+
+  .state-available{
+    background: rgba(62,142,99,0.16);
+    border-color: var(--available);
+    color:#bfe9cf;
+    box-shadow: 0 0 0 0 rgba(62,142,99,0.0);
+  }
+  .state-available:hover{
+    box-shadow: 0 0 22px -2px rgba(62,142,99,0.55);
+  }
+  .state-pending{
+    background: rgba(217,154,61,0.16);
+    border-color: var(--pending);
+    color:#ffe3b3;
+    animation: pulseGlowPending 2s ease-in-out infinite;
+  }
+  .state-reserved{
+    background: rgba(163,75,63,0.16);
+    border-color: var(--reserved);
+    color:#f0c9c2;
+    cursor:not-allowed;
+  }
+  .state-reserved:hover{ transform: translate(-50%,-50%); }
+  .state-selected{
+    background: rgba(37, 99, 235, 0.2);
+    border-color: var(--selected);
+    color:#93c5fd;
+  }
+
+  @keyframes pulseGlowPending{
+    0%,100%{ box-shadow: 0 0 0 0 rgba(217,154,61,0.45); }
+    50%{ box-shadow: 0 0 0 8px rgba(217,154,61,0); }
+  }
+
+  @keyframes shake{
+    0%,100%{ transform: translate(-50%,-50%) rotate(0deg); }
+    20%{ transform: translate(-50%,-50%) rotate(-4deg); }
+    40%{ transform: translate(-50%,-50%) rotate(4deg); }
+    60%{ transform: translate(-50%,-50%) rotate(-3deg); }
+    80%{ transform: translate(-50%,-50%) rotate(3deg); }
+  }
+  .shake{ animation: shake .4s ease; }
+
+  .card{
+    background: var(--surface);
+    border:1px solid var(--hairline);
+  }
+
+  input[type=text]:disabled,
+  input[type=tel]:disabled,
+  input[type=datetime-local]:disabled{
+    opacity:.4;
+    cursor:not-allowed;
+  }
+
+  input:focus-visible, button:focus-visible{
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+  }
+
+  .btn-gold{
+    background: linear-gradient(180deg, #dcb571, var(--gold));
+    color:#1a1204;
+  }
+  .btn-gold:disabled{
+    background: var(--surface-2);
+    color: var(--text-muted);
+    cursor:not-allowed;
+  }
+
+  #modalOverlay{
+    backdrop-filter: blur(6px);
+    background: rgba(6,6,7,0.75);
+  }
+  .modal-card{
+    animation: modalIn .28s ease;
+  }
+  @keyframes modalIn{
+    from{ opacity:0; transform: translateY(10px) scale(.97); }
+    to{ opacity:1; transform: translateY(0) scale(1); }
+  }
+
+  .bar-counter{
+    background: linear-gradient(180deg, rgba(201,161,93,0.14), rgba(201,161,93,0.03));
+    border-top: 1px solid rgba(201,161,93,0.35);
+  }
+
+  .qr-frame{
+    background:#ffffff;
+    border:1px solid var(--gold);
+    box-shadow: 0 0 0 4px rgba(201,161,93,0.08), 0 8px 24px -8px rgba(0,0,0,0.6);
+    width: 170px;
+    height: 170px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+</style>
+</head>
+<body class="min-h-screen">
+
+<div class="max-w-7xl mx-auto px-5 sm:px-8 py-10">
+
+  <!-- قسم لوحة الـ Admin المخفية (Staff Panel) -->
+  <div id="adminPanel" class="hidden card border-amber-500/30 rounded-2xl p-5 mb-8 bg-amber-500/5">
+    <div class="flex items-center justify-between flex-wrap gap-2">
+      <div>
+        <span class="text-xs uppercase tracking-widest text-amber-500 font-bold">Staff Control Panel</span>
+        <h3 class="font-display text-lg">Manage Live Reservations</h3>
+      </div>
+      <div id="pendingList" class="flex flex-wrap gap-2">
+        <!-- ستظهر الطاولات المعلقة هوني كفلس سريعة للتأكيد -->
+        <span class="text-xs text-[var(--text-muted)]">No active pending holds to process.</span>
+      </div>
+    </div>
+  </div>
+
+  <header class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-10 border-b border-[var(--hairline)] pb-6">
+    <div>
+      <p class="text-[11px] tracking-[0.3em] text-[var(--gold)] uppercase mb-1">Reservations</p>
+      <h1 class="font-display italic text-4xl sm:text-5xl">Amber Room</h1>
+      <p class="text-[var(--text-muted)] text-sm mt-1">A quiet, low-lit lounge for long evenings.</p>
+    </div>
+    <div class="text-sm text-[var(--text-muted)] sm:text-right">
+      <p>Open · 6:00 PM — 1:00 AM</p>
+      <p>12 Cardamom Lane</p>
+    </div>
+  </header>
+
+  <div class="grid lg:grid-cols-[1fr_380px] gap-6">
+
+    <section class="card rounded-2xl p-5 sm:p-7">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="font-display text-2xl">Floor Plan</h2>
+        <div class="flex flex-wrap items-center gap-4 text-xs text-[var(--text-muted)]">
+          <span class="flex items-center gap-1.5"><i class="w-2.5 h-2.5 rounded-full inline-block" style="background:var(--available)"></i>Available</span>
+          <span class="flex items-center gap-1.5"><i class="w-2.5 h-2.5 rounded-full inline-block" style="background:var(--selected)"></i>Selected</span>
+          <span class="flex items-center gap-1.5"><i class="w-2.5 h-2.5 rounded-full inline-block" style="background:var(--pending)"></i>Pending (30m hold)</span>
+          <span class="flex items-center gap-1.5"><i class="w-2.5 h-2.5 rounded-full inline-block" style="background:var(--reserved)"></i>Occupied</span>
+        </div>
+      </div>
+
+      <div id="floorPlan" class="relative w-full rounded-xl blueprint-grid overflow-hidden border border-[var(--hairline)]" style="aspect-ratio: 16/11;">
+        <div class="absolute left-[4%] top-[4%] text-[10px] tracking-[0.2em] text-[var(--text-muted)] uppercase">Window Side</div>
+        <div class="absolute left-[4%] top-[35%] text-[10px] tracking-[0.2em] text-[var(--text-muted)] uppercase">Main Floor</div>
+        <div class="absolute right-[4%] top-[35%] text-[10px] tracking-[0.2em] text-[var(--text-muted)] uppercase">Private Corner</div>
+        <div class="absolute left-1/2 -translate-x-1/2 bottom-[3%] text-[10px] tracking-[0.2em] text-[var(--text-muted)] uppercase">Bar Seating</div>
+
+        <div class="zone-panel absolute rounded-xl" style="left:3%; top:8%; width:94%; height:24%;"></div>
+        <div class="zone-panel absolute rounded-xl" style="left:3%; top:36%; width:64%; height:38%;"></div>
+        <div class="zone-panel absolute rounded-xl" style="left:71%; top:36%; width:26%; height:38%;"></div>
+
+        <div class="bar-counter absolute left-[15%] w-[70%] h-[9%]" style="bottom:0;"></div>
+        <div class="absolute left-[2%] bottom-[2%] text-[9px] tracking-[0.15em] text-[var(--gold-dim)] uppercase">↳ Entrance</div>
+
+        <div id="tablesLayer" class="absolute inset-0"></div>
+      </div>
+      <p class="text-xs text-[var(--text-muted)] mt-4">Tap an available table to begin your reservation. Pending tables are reserved but release after 30 minutes of no-show.</p>
+    </section>
+
+    <aside class="card rounded-2xl p-6 sm:p-7 h-fit lg:sticky lg:top-8">
+      <h2 class="font-display text-2xl mb-1">Your Reservation</h2>
+      <p id="selectionSummary" class="text-sm text-[var(--text-muted)] mb-6">No table selected yet.</p>
+
+      <form id="bookingForm" class="space-y-5">
+        <div>
+          <label class="block text-xs uppercase tracking-[0.15em] text-[var(--text-muted)] mb-1.5">Full Name</label>
+          <input id="nameInput" type="text" placeholder="e.g. Sarah Bennett" disabled required
+            class="w-full bg-[var(--surface-2)] border border-[var(--hairline)] rounded-lg px-3.5 py-2.5 text-sm placeholder:text-[var(--text-muted)] focus:border-[var(--gold)] transition-colors" />
+        </div>
+
+        <div>
+          <label class="block text-xs uppercase tracking-[0.15em] text-[var(--text-muted)] mb-1.5">Phone Number</label>
+          <input id="phoneInput" type="tel" placeholder="e.g. +216 55 123 456" disabled required
+            class="w-full bg-[var(--surface-2)] border border-[var(--hairline)] rounded-lg px-3.5 py-2.5 text-sm placeholder:text-[var(--text-muted)] focus:border-[var(--gold)] transition-colors" />
+        </div>
+
+        <div>
+          <label class="block text-xs uppercase tracking-[0.15em] text-[var(--text-muted)] mb-1.5">Booking Date & Time</label>
+          <input id="timeInput" type="datetime-local" disabled required
+            class="w-full bg-[var(--surface-2)] border border-[var(--hairline)] rounded-lg px-3.5 py-2.5 text-sm focus:border-[var(--gold)] transition-colors [color-scheme:dark]" />
+        </div>
+
+        <div>
+          <label class="block text-xs uppercase tracking-[0.15em] text-[var(--text-muted)] mb-1.5">Guests</label>
+          <input id="guestsInput" type="text" disabled readonly placeholder="—"
+            class="w-full bg-[var(--surface-2)]/60 border border-[var(--hairline)] rounded-lg px-3.5 py-2.5 text-sm text-[var(--text-muted)]" />
+        </div>
+
+        <button id="confirmBtn" type="submit" disabled
+          class="btn-gold w-full rounded-lg py-3 text-sm font-bold tracking-[0.1em] uppercase transition-opacity">
+          Confirm Reservation
+        </button>
+      </form>
+    </aside>
+
+  </div>
+</div>
+
+<div id="modalOverlay" class="fixed inset-0 hidden items-center justify-center z-50 p-4">
+  <div class="modal-card card rounded-2xl max-w-sm w-full p-7 text-center">
+    <div class="mx-auto mb-4 w-14 h-14 rounded-full flex items-center justify-center" style="background:rgba(201,161,93,0.15); border:1px solid var(--gold);">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </svg>
+    </div>
+    <h3 class="font-display text-2xl mb-1">Reservation Confirmed</h3>
+    <p class="text-xs text-amber-500 font-semibold mb-3">⚠️ Hold valid for 30 minutes only!</p>
+
+    <div class="flex justify-center mb-4">
+      <div class="qr-frame rounded-lg p-2 inline-flex items-center justify-center" id="qrContainer"></div>
+    </div>
+    <p class="text-[10px] tracking-[0.15em] text-[var(--text-muted)] uppercase mb-4 -mt-1">Show this QR Code at the door</p>
+
+    <div class="text-left text-sm bg-[var(--surface-2)] border border-[var(--hairline)] rounded-lg p-4 space-y-2 mb-5">
+      <div class="flex justify-between"><span class="text-[var(--text-muted)]">Table</span><span id="modalTable">—</span></div>
+      <div class="flex justify-between"><span class="text-[var(--text-muted)]">Guests</span><span id="modalGuests">—</span></div>
+      <div class="flex justify-between"><span class="text-[var(--text-muted)]">Time</span><span id="modalTime">—</span></div>
+      <div class="flex justify-between"><span class="text-[var(--text-muted)]">Name</span><span id="modalName">—</span></div>
+    </div>
+
+    <button id="modalCloseBtn" class="btn-gold w-full rounded-lg py-3 text-xs font-bold tracking-[0.1em] uppercase">
+      Done
+    </button>
+  </div>
+</div>
+
+<script>
+  // ---- Telegram Config ----
+  // ⚠️ حط الـ Token والـ Chat ID متاعك هوني ديريكت:
+  const TELEGRAM_BOT_TOKEN = '8911575559:AAEUEff8-qGFV9zg_jdDpuinws1gSKtSwVo'; 
+  const TELEGRAM_CHAT_ID = '6605926989';
+
+  // ---- Table data ----
+  const tables = [
+    { id:'A1', shape:'round',  capacity:2, x:15, y:19, zone:'Window Side', status:'available', expireTime: null, guestName: '' },
+    { id:'A2', shape:'round',  capacity:2, x:38, y:19, zone:'Window Side', status:'reserved', expireTime: null, guestName: ''  },
+    { id:'A3', shape:'square', capacity:4, x:62, y:19, zone:'Window Side', status:'available', expireTime: null, guestName: '' },
+    { id:'A4', shape:'round',  capacity:2, x:86, y:19, zone:'Window Side', status:'available', expireTime: null, guestName: '' },
+
+    { id:'B1', shape:'square', capacity:4, x:18, y:47, zone:'Main Floor',  status:'available', expireTime: null, guestName: '' },
+    { id:'B2', shape:'round',  capacity:4, x:42, y:47, zone:'Main Floor',  status:'reserved', expireTime: null, guestName: ''  },
+    { id:'B3', shape:'square', capacity:4, x:18, y:70, zone:'Main Floor',  status:'available', expireTime: null, guestName: '' },
+    { id:'B4', shape:'round',  capacity:6, x:46, y:70, zone:'Main Floor',  status:'available', expireTime: null, guestName: '' },
+
+    { id:'C1', shape:'square', capacity:6, x:84, y:53, zone:'Private Corner', status:'reserved', expireTime: null, guestName: '' },
+
+    { id:'D1', shape:'round',  capacity:2, x:36, y:90, zone:'Bar Seating', status:'available', expireTime: null, guestName: '' },
+    { id:'D2', shape:'round',  capacity:2, x:62, y:90, zone:'Bar Seating', status:'available', expireTime: null, guestName: '' },
+  ];
+
+  let selectedId = null;
+
+  const tablesLayer   = document.getElementById('tablesLayer');
+  const nameInput      = document.getElementById('nameInput');
+  const phoneInput     = document.getElementById('phoneInput');
+  const timeInput      = document.getElementById('timeInput');
+  const guestsInput    = document.getElementById('guestsInput');
+  const confirmBtn     = document.getElementById('confirmBtn');
+  const selectionSummary = document.getElementById('selectionSummary');
+  const bookingForm    = document.getElementById('bookingForm');
+  const adminPanel     = document.getElementById('adminPanel');
+  const pendingList    = document.getElementById('pendingList');
+
+  const sizeMap = { 2: 58, 4: 74, 6: 92 };
+
+  // التحقق من صلاحيات الـ Admin من خلال الرابط (URL Query)
+  function checkAdminPrivilege() {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('admin') === 'true') {
+      adminPanel.classList.remove('hidden');
+      return true;
+    }
+    return false;
+  }
+
+  // منع التواريخ والأوقات القديمة
+  function setupMinDateTime() {
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const localNow = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    timeInput.min = localNow;
+  }
+
+  function stateClass(status){
+    if(status === 'reserved') return 'state-reserved';
+    if(status === 'pending') return 'state-pending';
+    if(status === 'selected') return 'state-selected';
+    return 'state-available';
+  }
+
+  // مراجعة أوتوماتيكية لتحرير الطاولات (Auto-release) بعد 30 دقيقة
+  function checkPendingExpirations() {
+    const now = new Date().getTime();
+    let changed = false;
+
+    tables.forEach(t => {
+      if (t.status === 'pending' && t.expireTime && now > t.expireTime) {
+        t.status = 'available';
+        t.expireTime = null;
+        t.guestName = '';
+        changed = true;
+      }
+    });
+
+    if (changed) {
+      renderMap();
+    }
+  }
+
+  // تشغيل الفحص التلقائي للوقت كل 10 ثواني
+  setInterval(checkPendingExpirations, 10000);
+
+  function renderMap(){
+    checkPendingExpirations();
+    updateAdminPanel();
+    tablesLayer.innerHTML = '';
+    tables.forEach(t => {
+      const size = sizeMap[t.capacity];
+      const displayStatus = t.id === selectedId ? 'selected' : t.status;
+
+      const el = document.createElement('div');
+      el.className = `table-node ${stateClass(displayStatus)} ${t.shape === 'round' ? 'rounded-full' : 'rounded-xl'}`;
+      el.style.left = t.x + '%';
+      el.style.top = t.y + '%';
+      el.style.width = size + 'px';
+      el.style.height = size + 'px';
+      el.dataset.id = t.id;
+
+      el.innerHTML = `
+        <span class="label">${t.id}</span>
+        <span class="cap">${t.capacity} seats</span>
+      `;
+
+      el.addEventListener('click', () => handleTableClick(t.id));
+      tablesLayer.appendChild(el);
+    });
+  }
+
+  // تحديث لوحة التحكم الخاصة بالمدير وتوفير أزرار الـ Check-In بالوقت
+  function updateAdminPanel() {
+    if (adminPanel.classList.contains('hidden')) return;
+
+    const pendingTables = tables.filter(t => t.status === 'pending');
+    if (pendingTables.length === 0) {
+      pendingList.innerHTML = '<span class="text-xs text-[var(--text-muted)]">No active pending holds to process.</span>';
+      return;
+    }
+
+    pendingList.innerHTML = '';
+    pendingTables.forEach(t => {
+      const btn = document.createElement('button');
+      btn.className = 'bg-[#3e8e63] hover:bg-[#2d6b49] text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all';
+      btn.textContent = `Confirm Table ${t.id} (${t.guestName})`;
+      btn.addEventListener('click', () => confirmCheckIn(t.id));
+      pendingList.appendChild(btn);
+    });
+  }
+
+  async function confirmCheckIn(tableId) {
+    const table = tables.find(t => t.id === tableId);
+    if (table) {
+      table.status = 'reserved';
+      table.expireTime = null;
+      const guest = table.guestName;
+      table.guestName = '';
+      renderMap();
+
+      // إرسال تأكيد الحضور إلى تليغرام
+      if (TELEGRAM_BOT_TOKEN && !TELEGRAM_BOT_TOKEN.includes('YOUR_BOT_TOKEN') && TELEGRAM_CHAT_ID) {
+        const checkInMsg = `✅ *CHECK-IN CONFIRMED*\n\n` +
+                           `👤 *Name:* ${guest}\n` +
+                           `🪑 *Table:* ${table.id} is now officially *OCCUPIED* for the evening.`;
+        
+        await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: TELEGRAM_CHAT_ID,
+            text: checkInMsg,
+            parse_mode: 'Markdown'
+          })
+        });
+      }
+    }
+  }
+
+  function handleTableClick(id){
+    const table = tables.find(t => t.id === id);
+
+    if(table.status === 'reserved' || table.status === 'pending'){
+      const node = tablesLayer.querySelector(`[data-id="${id}"]`);
+      node.classList.remove('shake');
+      void node.offsetWidth;
+      node.classList.add('shake');
+      return;
+    }
+
+    if(selectedId === id){
+      selectedId = null;
+      resetForm();
+      renderMap();
+      return;
+    }
+
+    selectedId = id;
+    renderMap();
+    enableForm(table);
+  }
+
+  function enableForm(table){
+    [nameInput, phoneInput, timeInput].forEach(i => i.disabled = false);
+    setupMinDateTime();
+    guestsInput.value = `${table.capacity} guests · Table ${table.id} (${table.shape})`;
+    confirmBtn.disabled = false;
+    selectionSummary.innerHTML = `Table <span class="text-[var(--gold)]">${table.id}</span> selected — ${table.zone}, seats ${table.capacity}.`;
+  }
+
+  function resetForm(){
+    bookingForm.reset();
+    [nameInput, phoneInput, timeInput].forEach(i => i.disabled = true);
+    guestsInput.value = '';
+    confirmBtn.disabled = true;
+    selectionSummary.textContent = 'No table selected yet.';
+  }
+
+  bookingForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if(!selectedId) return;
+
+    const table = tables.find(t => t.id === selectedId);
+    if(!nameInput.value.trim() || !phoneInput.value.trim() || !timeInput.value) return;
+
+    const formattedTime = formatDateTime(timeInput.value);
+    const userSelectedDate = new Date(timeInput.value);
+    const expireTimestamp = userSelectedDate.getTime() + (30 * 60 * 1000); 
+
+    const bookingDetails = {
+      table: `${table.id} · ${table.zone}`,
+      tableId: table.id,
+      guests: `${table.capacity} guests`,
+      time: formattedTime,
+      name: nameInput.value.trim(),
+      phone: phoneInput.value.trim(),
+      expireTime: expireTimestamp
+    };
+
+    // إرسال الإشعار أوتوماتيكياً للـ Telegram
+    await sendTelegramNotification(bookingDetails, table);
+
+    // الطاولة تصبح Pending (لون برتقالي) وتنتهي بعد 30 دقيقة
+    table.status = 'pending';
+    table.expireTime = expireTimestamp;
+    table.guestName = nameInput.value.trim();
+
+    selectedId = null;
+    renderMap();
+    resetForm();
+    showModal(bookingDetails);
+  });
+
+  async function sendTelegramNotification(details, table){
+    if(!TELEGRAM_BOT_TOKEN || TELEGRAM_BOT_TOKEN.includes('YOUR_BOT_TOKEN') || !TELEGRAM_CHAT_ID){
+      console.log('Telegram not configured yet.');
+      return;
+    }
+
+    const message = `⏳ *PENDING RESERVATION (30m Hold)*\n\n` +
+                    `👤 *Name:* ${details.name}\n` +
+                    `📞 *Phone:* ${details.phone}\n` +
+                    `📍 *Table:* ${table.id} (${table.zone})\n` +
+                    `👥 *Guests:* ${table.capacity}\n` +
+                    `⏰ *Time:* ${details.time}\n\n` +
+                    `⚠️ *Note:* Table releases automatically if check-in is not confirmed within 30 minutes of reservation time.`;
+
+    try{
+      await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: TELEGRAM_CHAT_ID,
+          text: message,
+          parse_mode: 'Markdown'
+        })
+      });
+    } catch(err) {
+      console.warn('Telegram notification failed:', err);
+    }
+  }
+
+  function formatDateTime(value){
+    const d = new Date(value);
+    if(isNaN(d)) return value;
+    return d.toLocaleString(undefined, { weekday:'short', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+  }
+
+  // ---- Modal & QR Generator ----
+  const modalOverlay = document.getElementById('modalOverlay');
+
+  function showModal(details){
+    document.getElementById('modalTable').textContent = details.table;
+    document.getElementById('modalGuests').textContent = details.guests;
+    document.getElementById('modalTime').textContent = details.time;
+    document.getElementById('modalName').textContent = details.name;
+
+    // صنع الـ QR الحقيقي والحي
+    const qrContainer = document.getElementById('qrContainer');
+    qrContainer.innerHTML = ''; 
+
+    // نص الـ QR الحقيقي مع المعطيات ورابط تفاعلي
+    const qrText = `RESERVATION_DETAILS\nName: ${details.name}\nPhone: ${details.phone}\nTable: ${details.tableId}\nTime: ${details.time}\nStatus: Pending`;
+    
+    // استعمال API ممتازة ومفتوحة لإنتاج الـ QR بالوقت وبدقة عالية
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrText)}&color=141419&bgcolor=ffffff`;
+    qrContainer.innerHTML = `<img src="${qrUrl}" alt="Booking QR" class="w-full h-full" />`;
+
+    modalOverlay.classList.remove('hidden');
+    modalOverlay.classList.add('flex');
+  }
+
+  document.getElementById('modalCloseBtn').addEventListener('click', () => {
+    modalOverlay.classList.add('hidden');
+    modalOverlay.classList.remove('flex');
+  });
+  
+  modalOverlay.addEventListener('click', (e) => {
+    if(e.target === modalOverlay){
+      modalOverlay.classList.add('hidden');
+      modalOverlay.classList.remove('flex');
+    }
+  });
+
+  // التشغيل الأولي
+  checkAdminPrivilege();
+  renderMap();
+</script>
+
+</body>
+</html>
